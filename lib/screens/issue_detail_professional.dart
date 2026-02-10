@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../models/issue_model.dart';
 import '../services/firestore_service.dart';
 import '../auth_service.dart';
+import '../widgets/app_card.dart';
+import '../widgets/status_chip.dart';
+import '../config/app_theme.dart';
 
 class IssueDetailProfessionalScreen extends StatefulWidget {
   final IssueModel issue;
@@ -35,13 +38,11 @@ class _IssueDetailProfessionalScreenState
         return;
       }
 
-      // Update issue status
       await _firestoreService.updateIssue(widget.issue.id!, {
         'status': status,
         'assignedProfessionalId': user.uid,
       });
 
-      // Create notification
       await _firestoreService.createNotification(
         userId: widget.issue.customerId,
         title: 'Issue Update',
@@ -50,7 +51,6 @@ class _IssueDetailProfessionalScreenState
         data: {'issueId': widget.issue.id},
       );
 
-      // Show success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -59,11 +59,9 @@ class _IssueDetailProfessionalScreenState
           ),
         );
 
-        // Pop with result to refresh previous screen
         Navigator.pop(context, true);
       }
     } catch (e) {
-      // Handle errors
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -86,35 +84,91 @@ class _IssueDetailProfessionalScreenState
     return Scaffold(
       appBar: AppBar(
         title: const Text('Issue Details'),
-        backgroundColor: const Color(0xFF1DB9AA),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _HeroBlock(
+              title: issue.title,
+              category: issue.category,
+              status: issue.status,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            AppCard(
+              child: Row(
+                children: [
+                  Container(
+                    height: 52,
+                    width: 52,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF38BDF8), Color(0xFF6366F1)],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.18),
+                          blurRadius: 14,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.handyman,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      'Review details and accept the job when ready.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[700],
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             Text(
-              issue.title,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              'Job details',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
             ),
-            const SizedBox(height: 8),
-            Text(issue.category, style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 12),
-
-            _infoRow(Icons.location_on, issue.address),
-            _infoRow(Icons.warning, 'Emergency Level: ${issue.emergencyLevel}'),
-            _infoRow(Icons.info, 'Status: ${issue.status.toUpperCase()}'),
-
-            const SizedBox(height: 16),
-            const Text(
-              'Description',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            const SizedBox(height: AppSpacing.sm),
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _infoRow(Icons.location_on, issue.address),
+                  _infoRow(
+                    Icons.warning,
+                    'Emergency Level: ${issue.emergencyLevel}',
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 6),
-            Text(issue.description),
-
+            const SizedBox(height: AppSpacing.lg),
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Description',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(issue.description),
+                ],
+              ),
+            ),
             const Spacer(),
-
             if (_loading)
               const Center(child: CircularProgressIndicator())
             else
@@ -127,12 +181,28 @@ class _IssueDetailProfessionalScreenState
 
   Widget _infoRow(IconData icon, String text) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Colors.grey),
-          const SizedBox(width: 8),
-          Expanded(child: Text(text)),
+          Container(
+            height: 28,
+            width: 28,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+            ),
+            child: Icon(icon, size: 16, color: AppTheme.electric),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700],
+                  ),
+            ),
+          ),
         ],
       ),
     );
@@ -144,18 +214,20 @@ class _IssueDetailProfessionalScreenState
         return Row(
           children: [
             Expanded(
-              child: ElevatedButton(
+              child: ElevatedButton.icon(
                 onPressed: _loading ? null : () => _updateStatus('accepted'),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                child: const Text('Accept'),
+                icon: const Icon(Icons.check_circle_outline, size: 18),
+                label: const Text('Accept'),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
-              child: ElevatedButton(
+              child: ElevatedButton.icon(
                 onPressed: _loading ? null : () => _updateStatus('rejected'),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child: const Text('Reject'),
+                icon: const Icon(Icons.close, size: 18),
+                label: const Text('Reject'),
               ),
             ),
           ],
@@ -164,24 +236,208 @@ class _IssueDetailProfessionalScreenState
       case 'accepted':
         return SizedBox(
           width: double.infinity,
-          child: ElevatedButton(
+          child: ElevatedButton.icon(
             onPressed: _loading ? null : () => _updateStatus('working'),
-            child: const Text('Start Working'),
+            icon: const Icon(Icons.play_arrow, size: 18),
+            label: const Text('Start Working'),
           ),
         );
 
       case 'working':
         return SizedBox(
           width: double.infinity,
-          child: ElevatedButton(
+          child: ElevatedButton.icon(
             onPressed: _loading ? null : () => _updateStatus('completed'),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-            child: const Text('Mark as Completed'),
+            icon: const Icon(Icons.task_alt, size: 18),
+            label: const Text('Mark as Completed'),
           ),
         );
 
       default:
         return const SizedBox.shrink();
     }
+  }
+}
+
+class _HeroBlock extends StatefulWidget {
+  final String title;
+  final String category;
+  final String status;
+
+  const _HeroBlock({
+    required this.title,
+    required this.category,
+    required this.status,
+  });
+
+  @override
+  State<_HeroBlock> createState() => _HeroBlockState();
+}
+
+class _HeroBlockState extends State<_HeroBlock> {
+  bool _toggle = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 120), () {
+      if (mounted) setState(() => _toggle = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 1200),
+      curve: Curves.easeInOut,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadii.xl),
+        gradient: LinearGradient(
+          begin: _toggle ? Alignment.topLeft : Alignment.bottomRight,
+          end: _toggle ? Alignment.bottomRight : Alignment.topLeft,
+          colors: const [
+            Color(0xFF0F172A),
+            Color(0xFF1E293B),
+            Color(0xFF2563EB),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Job',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Colors.white70,
+                        letterSpacing: 0.8,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  widget.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    _HeroPill(label: widget.category),
+                    _HeroPill(label: widget.status.toUpperCase()),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          _HeroVisual(),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroPill extends StatelessWidget {
+  final String label;
+  const _HeroPill({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.25)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+      ),
+    );
+  }
+}
+
+class _HeroVisual extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 82,
+      height: 100,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 78,
+            height: 78,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.12),
+            ),
+          ),
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [Color(0xFF38BDF8), Color(0xFF6366F1)],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.25),
+                  blurRadius: 14,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.work, color: Colors.white),
+          ),
+          Positioned(
+            bottom: 6,
+            right: 6,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.bolt,
+                size: 14,
+                color: Color(0xFF2563EB),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

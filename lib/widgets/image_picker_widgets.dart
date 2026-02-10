@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/image_recognition_service.dart';
+import '../config/app_theme.dart';
 
 class ImagePickerWidget extends StatelessWidget {
   final List<File> selectedImages;
@@ -38,29 +39,28 @@ class ImagePickerWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Text(
+            Text(
               'Photos',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF2D3748),
-              ),
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
             const SizedBox(width: 8),
             Text(
               '(${selectedImages.length}/$maxImages)',
-              style: const TextStyle(fontSize: 14, color: Color(0xFF718096)),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey[600],
+                  ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-
-        // Image picker buttons
+        const SizedBox(height: AppSpacing.sm),
         Row(
           children: [
             Expanded(
@@ -71,7 +71,7 @@ class ImagePickerWidget extends StatelessWidget {
                 onTap: () => _pickImage(context, ImageSource.camera),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: _buildPickerButton(
                 context: context,
@@ -82,10 +82,8 @@ class ImagePickerWidget extends StatelessWidget {
             ),
           ],
         ),
-
-        // Display selected images
         if (selectedImages.isNotEmpty) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.md),
           SizedBox(
             height: 120,
             child: ListView.builder(
@@ -101,6 +99,13 @@ class ImagePickerWidget extends StatelessWidget {
             ),
           ),
         ],
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'Supported: JPG, PNG',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.outline,
+              ),
+        ),
       ],
     );
   }
@@ -111,24 +116,25 @@ class ImagePickerWidget extends StatelessWidget {
     required String label,
     required VoidCallback onTap,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppRadii.md),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          borderRadius: BorderRadius.circular(12),
+          color: colorScheme.surface,
+          border: Border.all(color: colorScheme.outlineVariant),
+          borderRadius: BorderRadius.circular(AppRadii.md),
         ),
         child: Column(
           children: [
-            Icon(icon, color: const Color(0xFF4A90E2), size: 32),
-            const SizedBox(height: 8),
+            Icon(icon, color: colorScheme.primary, size: 28),
+            const SizedBox(height: AppSpacing.xs),
             Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF4A90E2),
+              style: TextStyle(
+                color: colorScheme.primary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -140,11 +146,11 @@ class ImagePickerWidget extends StatelessWidget {
 
   Widget _buildImageThumbnail(BuildContext context, File image, int index) {
     return Container(
-      margin: const EdgeInsets.only(right: 12),
+      margin: const EdgeInsets.only(right: AppSpacing.md),
       child: Stack(
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadii.md),
             child: Image.file(
               image,
               width: 120,
@@ -163,7 +169,7 @@ class ImagePickerWidget extends StatelessWidget {
                   color: Colors.red,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.close, color: Colors.white, size: 20),
+                child: const Icon(Icons.close, color: Colors.white, size: 18),
               ),
             ),
           ),

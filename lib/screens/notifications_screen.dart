@@ -1,98 +1,71 @@
 import 'package:flutter/material.dart';
+import '../widgets/app_scaffold.dart';
+import '../config/app_theme.dart';
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [Color(0xFF1DB9AA), Color(0xFF4A90E2)],
+    return AppScaffold(
+      headerHeight: 200,
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Text(
+            'Notifications',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Column(
+          SizedBox(height: 6),
+          Text(
+            'Stay up to date with your jobs and reports',
+            style: TextStyle(fontSize: 14, color: Colors.white70),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Back',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                  ],
-                ),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back),
               ),
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text(
-                  'Notifications',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF5F5F5),
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(30),
-                      topRight: Radius.circular(30),
-                    ),
-                  ),
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(
-                            Icons.notifications_none_outlined,
-                            size: 80,
-                            color: Color(0xFF718096),
-                          ),
-                          SizedBox(height: 24),
-                          Text(
-                            'No notifications yet',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2D3748),
-                            ),
-                          ),
-                          SizedBox(height: 12),
-                          Text(
-                            'You\'ll receive notifications about job updates,\nmessages, and appointments here',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF718096),
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text('Back', style: Theme.of(context).textTheme.bodyMedium),
             ],
           ),
-        ),
+          const Spacer(),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(
+                  Icons.notifications_none_outlined,
+                  size: 80,
+                  color: Colors.grey,
+                ),
+                SizedBox(height: 24),
+                Text(
+                  'No notifications yet',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'You will receive updates about jobs, messages, and appointments here.',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+        ],
       ),
     );
   }

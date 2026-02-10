@@ -4,6 +4,9 @@ import '../services/firestore_service.dart';
 import '../models/issue_model.dart';
 import 'edit_issue_screen.dart';
 import 'review_screen.dart';
+import '../widgets/app_card.dart';
+import '../widgets/status_chip.dart';
+import '../config/app_theme.dart';
 
 class MyIssuesScreen extends StatelessWidget {
   final String? focusIssueId;
@@ -29,18 +32,48 @@ class MyIssuesScreen extends StatelessWidget {
           }
 
           return ListView.builder(
+            padding: const EdgeInsets.all(AppSpacing.lg),
             itemCount: issues.length,
             itemBuilder: (_, i) {
               final issue = issues[i];
               final isFocused = issue.id == focusIssueId;
 
-              return Card(
-                margin: const EdgeInsets.all(12),
-                color: isFocused ? Colors.blue.shade50 : null,
-                child: ListTile(
-                  title: Text(issue.title),
-                  subtitle: Text('Status: ${issue.status}'),
-                  trailing: _buildAction(context, issue),
+              return Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: AppCard(
+                  onTap: null,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isFocused
+                          ? Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withOpacity(0.08)
+                          : null,
+                      borderRadius: BorderRadius.circular(AppRadii.lg),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                issue.title,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w800),
+                              ),
+                              const SizedBox(height: 6),
+                              StatusChip(status: issue.status),
+                            ],
+                          ),
+                        ),
+                        _buildAction(context, issue),
+                      ],
+                    ),
+                  ),
                 ),
               );
             },

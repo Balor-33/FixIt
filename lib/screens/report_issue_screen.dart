@@ -7,6 +7,10 @@ import '../auth_service.dart';
 import '../services/firestore_service.dart';
 import '../services/image_recognition_service.dart';
 import '../models/issue_model.dart';
+import '../widgets/app_scaffold.dart';
+import '../widgets/app_card.dart';
+import '../widgets/primary_button.dart';
+import '../config/app_theme.dart';
 
 class ReportIssueScreen extends StatefulWidget {
   const ReportIssueScreen({super.key});
@@ -33,7 +37,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
   bool _isAnalyzing = false;
   final List<File> _selectedImages = [];
 
-  // Store AI detection results
   Map<int, String> _imageDetections = {};
   Map<int, List<ImageLabel>> _imageLabels = {};
   bool _isCategoryAISuggested = false;
@@ -54,10 +57,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     _imageRecognitionService.dispose();
     super.dispose();
   }
-
-  // ═══════════════════════════════════════════════════════════════
-  // IMAGE PICKER WITH AI RECOGNITION
-  // ═══════════════════════════════════════════════════════════════
 
   Future<void> _showImageSourceDialog() async {
     await showDialog(
@@ -89,15 +88,15 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: const Color(0xFF4A90E2).withOpacity(0.1),
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(icon, color: const Color(0xFF4A90E2), size: 28),
+            child: Icon(icon, color: Theme.of(context).colorScheme.primary),
           ),
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(fontSize: 13, color: Color(0xFF2D3748)),
+            style: const TextStyle(fontSize: 13),
           ),
         ],
       ),
@@ -114,7 +113,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
         _isAnalyzing = true;
       });
 
-      // 🤖 AI Analysis happens here
       await _analyzeImage(file, imageIndex);
 
       if (mounted) {
@@ -123,17 +121,10 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     }
   }
 
-  /// 🤖 AI MAGIC: Analyzes the image and suggests category
-  /// 🔥 NEW: Now asks user to confirm AI suggestion
   Future<void> _analyzeImage(File imageFile, int index) async {
     try {
-      // Get AI detection labels
       final labels = await _imageRecognitionService.analyzeImage(imageFile);
-
-      // Get detection summary
       final summary = _imageRecognitionService.getDetectionSummary(labels);
-
-      // Get AI-suggested category
       final suggestedCategory = await _imageRecognitionService.suggestCategory(
         imageFile,
       );
@@ -144,7 +135,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
           _imageDetections[index] = summary;
         });
 
-        // 🔥 AUTO-SELECT ONLY FOR FIRST IMAGE + ASK CONFIRMATION
         if (index == 0 && suggestedCategory != null) {
           _showCategoryConfirmationDialog(suggestedCategory, labels);
         }
@@ -154,7 +144,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     }
   }
 
-  /// 🔥 NEW: Ask user to confirm AI suggestion
   Future<void> _showCategoryConfirmationDialog(
     String suggested,
     List<ImageLabel> labels,
@@ -216,7 +205,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
               style: TextStyle(fontSize: 13, color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
-            // Show what AI detected
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
@@ -235,13 +223,11 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  ...labels
-                      .take(5)
-                      .map(
+                  ...labels.take(5).map(
                         (label) => Padding(
                           padding: const EdgeInsets.only(left: 8, top: 2),
                           child: Text(
-                            '• ${label.label} (${(label.confidence * 100).toStringAsFixed(0)}%)',
+                            '- ${label.label} (${(label.confidence * 100).toStringAsFixed(0)}%)',
                             style: TextStyle(
                               fontSize: 11,
                               color: Colors.grey[600],
@@ -258,7 +244,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text(
-              'No, I\'ll choose',
+              'No, I will choose',
               style: TextStyle(color: Colors.grey),
             ),
           ),
@@ -277,7 +263,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       ),
     );
 
-    // Apply AI suggestion only if user confirms
     if (confirmed == true && mounted) {
       setState(() {
         _selectedCategory = suggested;
@@ -301,7 +286,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     }
   }
 
-  /// Get icon for each category
   IconData _getCategoryIcon(String category) {
     switch (category) {
       case 'Electrical':
@@ -323,7 +307,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       _imageDetections.remove(index);
       _imageLabels.remove(index);
 
-      // Reindex remaining items
       final tempDetections = <int, String>{};
       final tempLabels = <int, List<ImageLabel>>{};
 
@@ -347,10 +330,6 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       _imageLabels = tempLabels;
     });
   }
-
-  // ═══════════════════════════════════════════════════════════════
-  // SUBMIT ISSUE (Unchanged)
-  // ═══════════════════════════════════════════════════════════════
 
   Future<void> _submitIssue() async {
     if (!_formKey.currentState!.validate()) return;
@@ -396,15 +375,12 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
         setState(() => _isUploading = false);
       }
 
-      print('Issue created with ID: $issueId');
-
       if (mounted) {
         setState(() => _isSubmitting = false);
         await _showSuccessAnimation();
         if (mounted) Navigator.pop(context);
       }
     } catch (e) {
-      print('Error creating issue: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -433,81 +409,127 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // UI BUILD (Rest remains the same as original)
-  // ═══════════════════════════════════════════════════════════════
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [Color(0xFF1DB9AA), Color(0xFF4A90E2)],
+    return AppScaffold(
+      headerHeight: 240,
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Text(
+            'Report an Issue',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-        ),
-        child: SafeArea(
+          SizedBox(height: 6),
+          Text(
+            'Share details so we can match the right pro.',
+            style: TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(),
-              Expanded(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF5F5F5),
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(30),
-                      topRight: Radius.circular(30),
-                    ),
-                  ),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'What needs to be fixed?',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2D3748),
-                            ),
+              const _HeroBlock(),
+              const SizedBox(height: AppSpacing.lg),
+              AppCard(
+                child: Row(
+                  children: [
+                    Container(
+                      height: 48,
+                      width: 48,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF38BDF8), Color(0xFF6366F1)],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.18),
+                            blurRadius: 14,
+                            offset: const Offset(0, 8),
                           ),
-                          const SizedBox(height: 24),
-                          _buildPhotoSection(),
-                          const SizedBox(height: 24),
-                          _buildTextField(
-                            'Title',
-                            _titleController,
-                            'e.g., Leaking kitchen sink',
-                          ),
-                          const SizedBox(height: 16),
-                          _buildCategoryDropdown(),
-                          const SizedBox(height: 16),
-                          _buildEmergencyDropdown(),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            'Description',
-                            _descriptionController,
-                            'Provide detailed information about the issue...',
-                            maxLines: 4,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            'Location/Address',
-                            _addressController,
-                            'e.g., 123 Main St, Apt 4B',
-                          ),
-                          const SizedBox(height: 30),
-                          _buildSubmitButton(),
                         ],
                       ),
+                      child: const Icon(
+                        Icons.auto_awesome,
+                        color: Colors.white,
+                        size: 22,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Text(
+                        'Tip: Add clear photos to get faster matches.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey[700],
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text('Back', style: Theme.of(context).textTheme.bodyMedium),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'What needs to be fixed?',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              _buildPhotoSection(),
+              const SizedBox(height: AppSpacing.lg),
+              _sectionDivider(),
+              const SizedBox(height: AppSpacing.lg),
+              _buildTextField(
+                'Title',
+                _titleController,
+                'e.g., Leaking kitchen sink',
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildCategoryDropdown(),
+              const SizedBox(height: AppSpacing.md),
+              _buildEmergencyDropdown(),
+              const SizedBox(height: AppSpacing.md),
+              _sectionDivider(),
+              const SizedBox(height: AppSpacing.lg),
+              _buildTextField(
+                'Description',
+                _descriptionController,
+                'Provide detailed information about the issue...',
+                maxLines: 4,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildTextField(
+                'Location/Address',
+                _addressController,
+                'e.g., 123 Main St, Apt 4B',
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              PrimaryButton(
+                label: 'Submit Report',
+                isLoading: _isSubmitting,
+                onPressed: _isSubmitting ? null : _submitIssue,
               ),
             ],
           ),
@@ -517,229 +539,246 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
   }
 
   Widget _buildPhotoSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                const Text(
-                  'Photos',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF2D3748),
-                  ),
-                ),
-                if (_isAnalyzing) ...[
-                  const SizedBox(width: 8),
-                  const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation(Color(0xFF1DB9AA)),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            Text(
-              '${_selectedImages.length}/5',
-              style: const TextStyle(fontSize: 14, color: Color(0xFF718096)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            ..._selectedImages.asMap().entries.map((entry) {
-              final hasDetection = _imageDetections.containsKey(entry.key);
-              final detection = _imageDetections[entry.key];
-
-              return Column(
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
                 children: [
-                  Stack(
-                    children: [
-                      Container(
-                        width: 96,
-                        height: 96,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: hasDetection
-                                ? const Color(0xFF1DB9AA)
-                                : const Color(0xFFE2E8F0),
-                            width: 2,
-                          ),
-                          image: DecorationImage(
-                            image: FileImage(entry.value),
-                            fit: BoxFit.cover,
-                          ),
+                  Text(
+                    'Photos',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
                         ),
-                      ),
-                      if (hasDetection)
-                        Positioned(
-                          bottom: 4,
-                          left: 4,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1DB9AA),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.auto_awesome,
-                                  size: 10,
-                                  color: Colors.white,
-                                ),
-                                SizedBox(width: 2),
-                                Text(
-                                  'AI',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: GestureDetector(
-                          onTap: () => _removeImage(entry.key),
-                          child: Container(
-                            padding: const EdgeInsets.all(3),
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.close,
-                              size: 14,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
-                  if (hasDetection && detection != null)
-                    Container(
-                      width: 96,
-                      margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1DB9AA).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        detection,
-                        style: const TextStyle(
-                          fontSize: 8,
-                          color: Color(0xFF2D3748),
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                  if (_isAnalyzing) ...[
+                    const SizedBox(width: 8),
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
+                  ],
                 ],
-              );
-            }),
-            if (_selectedImages.length < 5)
-              GestureDetector(
-                onTap: _showImageSourceDialog,
-                child: Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF7FAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFF4A90E2),
-                      width: 2,
-                    ),
-                  ),
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.add_photo_alternate,
-                        size: 28,
-                        color: Color(0xFF4A90E2),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${_selectedImages.length}/5',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w700,
                       ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Add',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF4A90E2),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
-          ],
-        ),
-        if (_isAnalyzing)
-          const Padding(
-            padding: EdgeInsets.only(top: 10),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              ..._selectedImages.asMap().entries.map((entry) {
+                final hasDetection = _imageDetections.containsKey(entry.key);
+                final detection = _imageDetections[entry.key];
+
+                return Column(
+                  children: [
+                    Stack(
+                      children: [
+                        Container(
+                          width: 96,
+                          height: 96,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: hasDetection
+                                  ? Theme.of(context).colorScheme.primary
+                                  : const Color(0xFFE5E7EB),
+                              width: 2,
+                            ),
+                            image: DecorationImage(
+                              image: FileImage(entry.value),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                        if (hasDetection)
+                          Positioned(
+                            bottom: 4,
+                            left: 4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF38BDF8), Color(0xFF6366F1)],
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.auto_awesome,
+                                    size: 10,
+                                    color: Colors.white,
+                                  ),
+                                  SizedBox(width: 2),
+                                  Text(
+                                    'AI',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: GestureDetector(
+                            onTap: () => _removeImage(entry.key),
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.close,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (hasDetection && detection != null)
+                      Container(
+                        width: 96,
+                        margin: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          detection,
+                          style: const TextStyle(
+                            fontSize: 8,
+                            color: Color(0xFF2D3748),
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                );
+              }),
+              if (_selectedImages.length < 5)
+                GestureDetector(
+                  onTap: _showImageSourceDialog,
+                  child: Container(
+                    width: 96,
+                    height: 96,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(
+                          Icons.add_photo_alternate,
+                          size: 28,
+                          color: Color(0xFF4A90E2),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Add',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF4A90E2),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 200),
+            opacity: _isAnalyzing ? 1 : 0,
             child: Row(
-              children: [
+              children: const [
                 SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(Color(0xFF1DB9AA)),
-                  ),
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 ),
                 SizedBox(width: 10),
                 Text(
                   'AI is analyzing image...',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF1DB9AA)),
+                  style: TextStyle(fontSize: 13),
                 ),
               ],
             ),
           ),
-        if (_isUploading)
-          const Padding(
-            padding: EdgeInsets.only(top: 10),
+          const SizedBox(height: 6),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 200),
+            opacity: _isUploading ? 1 : 0,
             child: Row(
-              children: [
+              children: const [
                 SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(Color(0xFF4A90E2)),
-                  ),
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 ),
                 SizedBox(width: 10),
                 Text(
                   'Uploading photos...',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF4A90E2)),
+                  style: TextStyle(fontSize: 13),
                 ),
               ],
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -749,20 +788,20 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       children: [
         Row(
           children: [
-            const Text(
+            Text(
               'Category',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF2D3748),
-              ),
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
             if (_isCategoryAISuggested) ...[
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1DB9AA),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF38BDF8), Color(0xFF6366F1)],
+                  ),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Row(
@@ -786,7 +825,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          initialValue: _selectedCategory,
+          value: _selectedCategory,
           items: _categories
               .map((c) => DropdownMenuItem(value: c, child: Text(c)))
               .toList(),
@@ -798,27 +837,8 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
               });
             }
           },
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF4A90E2), width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-          ),
-          icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF4A90E2)),
+          decoration: const InputDecoration(),
+          icon: const Icon(Icons.arrow_drop_down),
         ),
       ],
     );
@@ -828,17 +848,15 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Emergency Level',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF2D3748),
-          ),
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<int>(
-          initialValue: _emergencyLevel,
+          value: _emergencyLevel,
           items: const [
             DropdownMenuItem(value: 1, child: Text('Low')),
             DropdownMenuItem(value: 2, child: Text('Medium')),
@@ -847,51 +865,8 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
           onChanged: (value) {
             if (value != null) setState(() => _emergencyLevel = value);
           },
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF4A90E2), width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-          ),
         ),
       ],
-    );
-  }
-
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
-            onPressed: () => Navigator.pop(context),
-          ),
-          const SizedBox(width: 8),
-          const Text(
-            'Report an Issue',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -901,93 +876,220 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     String hint, {
     int maxLines = 1,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF2D3748),
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          maxLines: maxLines,
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(color: Color(0xFFA0AEC0)),
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF4A90E2), width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.red),
-            ),
-            contentPadding: const EdgeInsets.all(16),
-          ),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Please enter $label';
-            }
-            return null;
-          },
-        ),
-      ],
+    return TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+      ),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Please enter $label';
+        }
+        return null;
+      },
     );
   }
 
-  Widget _buildSubmitButton() {
-    return SizedBox(
+  Widget _sectionDivider() {
+    return Container(
+      height: 1,
       width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: _isSubmitting ? null : _submitIssue,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF4A90E2),
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: const Color(0xFF4A90E2).withOpacity(0.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 0,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.transparent,
+            Theme.of(context).colorScheme.primary.withOpacity(0.4),
+            Colors.transparent,
+          ],
         ),
-        child: _isSubmitting
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.5,
-                ),
-              )
-            : const Text(
-                'SUBMIT REPORT',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
-              ),
       ),
     );
   }
 }
 
-// SUCCESS ANIMATION (Unchanged)
+class _HeroBlock extends StatefulWidget {
+  const _HeroBlock();
+
+  @override
+  State<_HeroBlock> createState() => _HeroBlockState();
+}
+
+class _HeroBlockState extends State<_HeroBlock> {
+  bool _toggle = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 120), () {
+      if (mounted) {
+        setState(() => _toggle = true);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 1200),
+      curve: Curves.easeInOut,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadii.xl),
+        gradient: LinearGradient(
+          begin: _toggle ? Alignment.topLeft : Alignment.bottomRight,
+          end: _toggle ? Alignment.bottomRight : Alignment.topLeft,
+          colors: const [
+            Color(0xFF0F172A),
+            Color(0xFF1E293B),
+            Color(0xFF2563EB),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'New Issue',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Colors.white70,
+                        letterSpacing: 0.8,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Let’s fix this fast',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'High-quality details help pros accept quicker.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white70,
+                      ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    _Pill(label: 'AI-assisted'),
+                    _Pill(label: 'Real-time'),
+                    _Pill(label: 'Secure'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          _HeroVisual(),
+        ],
+      ),
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  final String label;
+  const _Pill({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.25)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+      ),
+    );
+  }
+}
+
+class _HeroVisual extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 82,
+      height: 100,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 78,
+            height: 78,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.12),
+            ),
+          ),
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [Color(0xFF38BDF8), Color(0xFF6366F1)],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.25),
+                  blurRadius: 14,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.handyman, color: Colors.white),
+          ),
+          Positioned(
+            bottom: 6,
+            right: 6,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.auto_awesome,
+                size: 14,
+                color: Color(0xFF2563EB),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SuccessAnimationDialog extends StatefulWidget {
   const _SuccessAnimationDialog();
 

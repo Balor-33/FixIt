@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/issue_model.dart';
 import '../services/firestore_service.dart';
+import '../widgets/primary_button.dart';
+import '../config/app_theme.dart';
 
 class EditIssueScreen extends StatefulWidget {
   final IssueModel issue;
@@ -73,7 +75,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Edit Issue')),
       body: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Form(
           key: _formKey,
           child: ListView(
@@ -81,18 +83,18 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
               _field('Title', _title),
               _field('Description', _description, maxLines: 4),
               _field('Address', _address),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               DropdownButtonFormField<String>(
-                initialValue: _category,
+                value: _category,
                 items: _categories
                     .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                     .toList(),
                 onChanged: (v) => setState(() => _category = v!),
                 decoration: const InputDecoration(labelText: 'Category'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               DropdownButtonFormField<int>(
-                initialValue: _emergencyLevel,
+                value: _emergencyLevel,
                 decoration:
                     const InputDecoration(labelText: 'Emergency Level'),
                 items: const [
@@ -102,12 +104,11 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
                 ],
                 onChanged: (v) => setState(() => _emergencyLevel = v!),
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
+              const SizedBox(height: AppSpacing.xl),
+              PrimaryButton(
+                label: 'Save Changes',
+                isLoading: _isSaving,
                 onPressed: _isSaving ? null : _saveChanges,
-                child: _isSaving
-                    ? const CircularProgressIndicator()
-                    : const Text('SAVE CHANGES'),
               ),
             ],
           ),
@@ -119,7 +120,7 @@ class _EditIssueScreenState extends State<EditIssueScreen> {
   Widget _field(String label, TextEditingController controller,
       {int maxLines = 1}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: TextFormField(
         controller: controller,
         maxLines: maxLines,

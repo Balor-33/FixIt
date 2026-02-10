@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
+import 'config/app_theme.dart';
 import 'screens/role_selection_screen.dart';
 import 'screens/customer_home_screen.dart';
 import 'screens/professional_home_screen.dart';
@@ -28,11 +29,7 @@ class FixItApp extends StatelessWidget {
     return MaterialApp(
       title: 'FixIt',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.cyan,
-        scaffoldBackgroundColor: const Color(0xFFF5F5F5),
-        fontFamily: 'Roboto',
-      ),
+      theme: AppTheme.light(),
       home: const AuthGate(),
     );
   }

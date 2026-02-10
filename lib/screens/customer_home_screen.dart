@@ -1,4 +1,3 @@
-// customer_home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../auth_service.dart';
@@ -9,6 +8,11 @@ import 'report_issue_screen.dart';
 import 'my_issues_screen.dart';
 import 'notifications_screen.dart';
 import 'role_selection_screen.dart';
+import '../widgets/app_scaffold.dart';
+import '../widgets/app_card.dart';
+import '../widgets/section_header.dart';
+import '../widgets/status_chip.dart';
+import '../config/app_theme.dart';
 
 class CustomerHomeScreen extends StatelessWidget {
   const CustomerHomeScreen({super.key});
@@ -20,88 +24,189 @@ class CustomerHomeScreen extends StatelessWidget {
       return const Scaffold(body: Center(child: Text('Not logged in')));
     }
 
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF1DB9AA), Color(0xFF4A90E2)],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _Header(userId: currentUser.uid),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF5F5F5),
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(30),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _QuickActions(),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Recent Issues',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(child: _RecentIssues(userId: currentUser.uid)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+    return AppScaffold(
+      headerHeight: 220,
+      header: _CustomerDashboardHeader(userId: currentUser.uid),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _QuickActions(),
+          const SizedBox(height: AppSpacing.xl),
+          const SectionHeader(title: 'Recent Issues'),
+          Expanded(child: _RecentIssues(userId: currentUser.uid)),
+        ],
       ),
     );
   }
 }
 
-class _Header extends StatelessWidget {
+class _CustomerDashboardHeader extends StatelessWidget {
   final String userId;
-  const _Header({required this.userId});
+  const _CustomerDashboardHeader({required this.userId});
 
   @override
   Widget build(BuildContext context) {
     final service = FirestoreService();
 
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: StreamBuilder<UserModel?>(
-        stream: service.getUserStream(userId),
-        builder: (_, snapshot) {
-          return Row(
-            children: [
-              const Text(
-                'Welcome 👋',
-                style: TextStyle(color: Colors.white, fontSize: 18),
+    return StreamBuilder<UserModel?>(
+      stream: service.getUserStream(userId),
+      builder: (_, snapshot) {
+        final displayName =
+            snapshot.data?.displayName ?? snapshot.data?.email ?? 'Welcome';
+        return Column(
+          children: [
+            _AnimatedDashboardHero(
+              title: displayName,
+              subtitle: 'Ready to get things fixed?',
+              label: 'Customer',
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                Text(
+                  'Welcome back',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white70,
+                      ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.logout, color: Colors.white),
+                  onPressed: () async {
+                    await AuthService().signOut();
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const RoleSelectionScreen(),
+                      ),
+                      (_) => false,
+                    );
+                  },
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _AnimatedDashboardHero extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String label;
+
+  const _AnimatedDashboardHero({
+    required this.title,
+    required this.subtitle,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadii.xl),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0F172A),
+            Color(0xFF1E293B),
+            Color(0xFF2563EB),
+          ],
+        ),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.22),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Colors.white70,
+                        letterSpacing: 0.8,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white70,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          _HeroVisualBubble(icon: Icons.flash_on),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroVisualBubble extends StatelessWidget {
+  final IconData icon;
+  const _HeroVisualBubble({required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 82,
+      height: 100,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 78,
+            height: 78,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.12),
+            ),
+          ),
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [Color(0xFF38BDF8), Color(0xFF6366F1)],
               ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.logout, color: Colors.white),
-                onPressed: () async {
-                  await AuthService().signOut();
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const RoleSelectionScreen(),
-                    ),
-                    (_) => false,
-                  );
-                },
-              ),
-            ],
-          );
-        },
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.22),
+                  blurRadius: 14,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white),
+          ),
+        ],
       ),
     );
   }
@@ -110,41 +215,63 @@ class _Header extends StatelessWidget {
 class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _ActionCard(
-          icon: Icons.add,
-          title: 'Report Issue',
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ReportIssueScreen()),
-            );
-          },
-        ),
-        const SizedBox(width: 12),
-        _ActionCard(
-          icon: Icons.list_alt,
-          title: 'My Issues',
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const MyIssuesScreen()),
-            );
-          },
-        ),
-        const SizedBox(width: 12),
-        _ActionCard(
-          icon: Icons.notifications,
-          title: 'Alerts',
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-            );
-          },
-        ),
-      ],
+    final actions = [
+      _ActionCard(
+        icon: Icons.add,
+        title: 'Report Issue',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ReportIssueScreen()),
+          );
+        },
+      ),
+      _ActionCard(
+        icon: Icons.list_alt,
+        title: 'My Issues',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const MyIssuesScreen()),
+          );
+        },
+      ),
+      _ActionCard(
+        icon: Icons.notifications,
+        title: 'Alerts',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+          );
+        },
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        if (width >= 700) {
+          return GridView.count(
+            shrinkWrap: true,
+            crossAxisCount: 3,
+            crossAxisSpacing: AppSpacing.md,
+            mainAxisSpacing: AppSpacing.md,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 1.6,
+            children: actions,
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: actions[0]),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(child: actions[1]),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(child: actions[2]),
+          ],
+        );
+      },
     );
   }
 }
@@ -167,53 +294,57 @@ class _RecentIssues extends StatelessWidget {
         final issues = snapshot.data!.take(3).toList();
 
         if (issues.isEmpty) {
-          return const Center(child: Text('No issues reported yet'));
+          return Center(
+            child: Text(
+              'No issues reported yet',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+            ),
+          );
         }
 
-        return ListView.builder(
-          itemCount: issues.length,
-          itemBuilder: (_, i) {
-            final issue = issues[i];
-            return Card(
-              elevation: 2,
-              margin: const EdgeInsets.only(bottom: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.all(16),
-                title: Text(
-                  issue.title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: ListView.builder(
+            key: const ValueKey('issues'),
+            itemCount: issues.length,
+            itemBuilder: (_, i) {
+              final issue = issues[i];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: AppCard(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MyIssuesScreen(focusIssueId: issue.id),
+                      ),
+                    );
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        issue.title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      StatusChip(status: issue.status),
+                      if (issue.assignedProfessionalId != null) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        _ProfessionalInfo(
+                          professionalId: issue.assignedProfessionalId!,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 8),
-                    _StatusChip(status: issue.status),
-                    if (issue.assignedProfessionalId != null) ...[
-                      const SizedBox(height: 8),
-                      _ProfessionalInfo(
-                        professionalId: issue.assignedProfessionalId!,
-                      ),
-                    ],
-                  ],
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => MyIssuesScreen(focusIssueId: issue.id),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
+              );
+            },
+          ),
         );
       },
     );
@@ -233,96 +364,35 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Icon(icon, size: 28, color: const Color(0xFF1DB9AA)),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
+    return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.lg,
       ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  final String status;
-  const _StatusChip({required this.status});
-
-  Color _getStatusColor() {
-    switch (status.toLowerCase()) {
-      case 'open':
-        return Colors.orange;
-      case 'accepted':
-        return Colors.blue;
-      case 'working':
-        return Colors.purple;
-      case 'completed':
-        return Colors.green;
-      case 'rejected':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getStatusIcon() {
-    switch (status.toLowerCase()) {
-      case 'open':
-        return Icons.pending;
-      case 'accepted':
-        return Icons.check_circle_outline;
-      case 'working':
-        return Icons.construction;
-      case 'completed':
-        return Icons.done_all;
-      case 'rejected':
-        return Icons.cancel;
-      default:
-        return Icons.info;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(_getStatusIcon(), size: 16, color: _getStatusColor()),
-        const SizedBox(width: 4),
-        Text(
-          status.toUpperCase(),
-          style: TextStyle(
-            color: _getStatusColor(),
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
+      child: Column(
+        children: [
+          Container(
+            height: 44,
+            width: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [Color(0xFF38BDF8), Color(0xFF6366F1)],
+              ),
+            ),
+            child: Icon(icon, size: 22, color: Colors.white),
           ),
-        ),
-      ],
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -346,19 +416,23 @@ class _ProfessionalInfo extends StatelessWidget {
         final displayName = professional.displayName ?? professional.email;
 
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
           decoration: BoxDecoration(
-            color: const Color(0xFF1DB9AA).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFF1DB9AA).withOpacity(0.3)),
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(AppRadii.md),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Avatar with photo or initial
               CircleAvatar(
                 radius: 16,
-                backgroundColor: const Color(0xFF1DB9AA),
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 backgroundImage: professional.photoUrl != null
                     ? NetworkImage(professional.photoUrl!)
                     : null,
@@ -375,21 +449,22 @@ class _ProfessionalInfo extends StatelessWidget {
                       )
                     : null,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.sm),
               Flexible(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Assigned to',
-                      style: TextStyle(fontSize: 10, color: Colors.grey),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Colors.grey[600],
+                          ),
                     ),
                     Text(
                       displayName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (professional.service != null) ...[
@@ -398,17 +473,17 @@ class _ProfessionalInfo extends StatelessWidget {
                         children: [
                           Icon(
                             Icons.work_outline,
-                            size: 10,
+                            size: 12,
                             color: Colors.grey[600],
                           ),
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
                               professional.service!,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey[600],
-                              ),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(color: Colors.grey[600]),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),

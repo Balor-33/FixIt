@@ -3,6 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../auth_service.dart';
 import '../services/firestore_service.dart';
 import '../models/issue_model.dart';
+import '../widgets/app_scaffold.dart';
+import '../widgets/app_card.dart';
+import '../config/app_theme.dart';
 
 class MyReportsScreen extends StatefulWidget {
   const MyReportsScreen({super.key});
@@ -23,151 +26,122 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
       return const Scaffold(body: Center(child: Text('Not logged in')));
     }
 
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [Color(0xFF1DB9AA), Color(0xFF4A90E2)],
+    return AppScaffold(
+      headerHeight: 200,
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Text(
+            'My Reports',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Column(
+          SizedBox(height: 6),
+          Text(
+            'Track the progress of your reported issues',
+            style: TextStyle(fontSize: 14, color: Colors.white70),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text('Back', style: Theme.of(context).textTheme.bodyMedium),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Expanded(
+            child: StreamBuilder<List<IssueModel>>(
+              stream: _firestoreService.getCustomerIssues(currentUser.uid),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
+                    const Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: Colors.red,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(height: 16),
                     const Text(
-                      'Back',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
+                      'Error loading reports',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      snapshot.error.toString(),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.red,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text(
-                  'My Reports',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+            );
+          }
+
+          final issues = snapshot.data ?? [];
+
+          if (issues.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.inbox_outlined, size: 80, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text(
+                    'No reports yet',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
-                ),
+                  SizedBox(height: 8),
+                  Text('Your reported issues will appear here'),
+                ],
               ),
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF5F5F5),
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(30),
-                      topRight: Radius.circular(30),
-                    ),
+            );
+          }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.only(
+                    left: AppSpacing.lg,
+                    right: AppSpacing.lg,
+                    bottom: AppSpacing.lg,
                   ),
-                  child: StreamBuilder<List<IssueModel>>(
-                    stream: _firestoreService.getCustomerIssues(
-                      currentUser.uid,
-                    ),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-
-                      if (snapshot.hasError) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.error_outline,
-                                  size: 64,
-                                  color: Colors.red,
-                                ),
-                                const SizedBox(height: 16),
-                                const Text(
-                                  'Error loading reports',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.red,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  snapshot.error.toString(),
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.red,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-
-                      final issues = snapshot.data ?? [];
-
-                      if (issues.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(
-                                Icons.inbox_outlined,
-                                size: 80,
-                                color: Color(0xFF718096),
-                              ),
-                              SizedBox(height: 16),
-                              Text(
-                                'No reports yet',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2D3748),
-                                ),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Your reported issues will appear here',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Color(0xFF718096),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-
-                      return ListView.builder(
-                        padding: const EdgeInsets.all(24),
-                        itemCount: issues.length,
-                        itemBuilder: (context, index) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _ReportCard(issue: issues[index]),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ],
+                  itemCount: issues.length,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                      child: _ReportCard(issue: issues[index]),
+                    );
+                  },
+                );
+              },
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -207,9 +181,11 @@ class _ReportCard extends StatelessWidget {
     final difference = now.difference(dateTime);
 
     if (difference.inDays > 365) {
-      return '${(difference.inDays / 365).floor()} year${(difference.inDays / 365).floor() > 1 ? 's' : ''} ago';
+      final years = (difference.inDays / 365).floor();
+      return '$years year${years > 1 ? 's' : ''} ago';
     } else if (difference.inDays > 30) {
-      return '${(difference.inDays / 30).floor()} month${(difference.inDays / 30).floor() > 1 ? 's' : ''} ago';
+      final months = (difference.inDays / 30).floor();
+      return '$months month${months > 1 ? 's' : ''} ago';
     } else if (difference.inDays > 0) {
       return '${difference.inDays} day${difference.inDays > 1 ? 's' : ''} ago';
     } else if (difference.inHours > 0) {
@@ -225,19 +201,7 @@ class _ReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = _getStatusColor(issue.status);
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -250,31 +214,26 @@ class _ReportCard extends StatelessWidget {
                   children: [
                     Text(
                       issue.title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF2D3748),
-                      ),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       issue.category,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF718096),
-                      ),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[600],
+                          ),
                     ),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppRadii.md),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -301,28 +260,29 @@ class _ReportCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
-              const Icon(Icons.location_on, size: 16, color: Color(0xFF718096)),
+              const Icon(Icons.location_on, size: 16, color: Colors.grey),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   issue.address,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF718096),
-                  ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey[600],
+                      ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 16),
-              const Icon(Icons.access_time, size: 16, color: Color(0xFF718096)),
+              const SizedBox(width: 12),
+              const Icon(Icons.access_time, size: 16, color: Colors.grey),
               const SizedBox(width: 4),
               Text(
                 _getTimeAgo(issue.createdAt),
-                style: const TextStyle(fontSize: 13, color: Color(0xFF718096)),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey[600],
+                    ),
               ),
             ],
           ),

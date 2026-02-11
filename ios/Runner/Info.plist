@@ -50,5 +50,7 @@
 	<string>We need camera access to let you attach photos for issue reports.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>We need access to your photo library so you can select images to attach to issue reports.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need your location to auto-fill the address of the reported issue.</string>
 </dict>
 </plist>

@@ -1,14 +1,12 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class CloudinaryConfig {
-  // TODO: Replace these with YOUR actual Cloudinary credentials
-  // Get them from: https://cloudinary.com/console
-  // Dashboard → Account Details → Copy these 3 values
+  // Secure credential loading
+  static String get cloudName => dotenv.env['CLOUDINARY_CLOUD_NAME'] ?? '';
+  static String get apiKey => dotenv.env['CLOUDINARY_API_KEY'] ?? '';
+  static String get apiSecret => dotenv.env['CLOUDINARY_API_SECRET'] ?? '';
 
-  static const String cloudName = 'dlcw5slnp'; // Example: 'dlcw5slnp'
-  static const String apiKey = '577755872296224'; // Example: '577755872296224'
-  static const String apiSecret =
-      'UHf8-avBIn8rvC2MUfWLu9pHmAQ'; // Example: 'UHf8-avBIn8rvC2MUfWLu9pHmAQ'
-
-  // Upload configuration
+  // Upload configuration (unchanged)
   static const String uploadFolder = 'fixit_issues';
   static const int maxImageQuality = 85;
   static const int maxImageWidth = 1920;

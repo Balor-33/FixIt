@@ -1,17 +1,15 @@
+﻿import 'dart:convert';
 import 'dart:io';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-// ✅ Top-level background message handler
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print('🔔 Background message: ${message.messageId}');
-  print('Title: ${message.notification?.title}');
-  print('Body: ${message.notification?.body}');
-  print('Data: ${message.data}');
-}
+import '../firebase_options.dart';
+import 'notification_routes.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -22,333 +20,285 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
+  static const String _channelId = 'fixit_high_importance';
+
   String? _fcmToken;
   String? get fcmToken => _fcmToken;
 
-  // ✅ Track initialization state
   bool _isInitialized = false;
+  GlobalKey<NavigatorState>? _navigatorKey;
+  final List<Map<String, dynamic>> _pendingPayloads = [];
+
+  @pragma('vm:entry-point')
+  static Future<void> firebaseMessagingBackgroundHandler(
+    RemoteMessage message,
+  ) async {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+
+    debugPrint('Background message received: ${message.messageId}');
+    debugPrint('Data: ${message.data}');
+  }
+
+  void setNavigatorKey(GlobalKey<NavigatorState> navigatorKey) {
+    _navigatorKey = navigatorKey;
+    _flushPendingNavigation();
+  }
 
   Future<void> initialize() async {
-    if (_isInitialized) {
-      print('⚠️ Notification service already initialized');
+    if (_isInitialized) return;
+
+    final granted = await _requestPermission();
+    if (!granted) {
+      debugPrint('Notification permission denied');
       return;
     }
 
-    print('🚀 Initializing Notification Service...');
+    await _initializeLocalNotifications();
+    await _getFCMToken();
 
-    try {
-      // 1. Request permission FIRST
-      final permissionGranted = await _requestPermission();
-      if (!permissionGranted) {
-        print('❌ Notification permission not granted');
-        return;
-      }
+    _messaging.onTokenRefresh.listen((newToken) async {
+      _fcmToken = newToken;
+      await updateUserToken();
+    });
 
-      // 2. Initialize local notifications
-      await _initializeLocalNotifications();
+    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
-      // 3. Set up background handler
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    await _checkInitialMessage();
 
-      // 4. Get FCM token
-      await _getFCMToken();
-
-      // 5. Token refresh listener
-      _messaging.onTokenRefresh.listen((newToken) {
-        _fcmToken = newToken;
-        print('✅ FCM Token refreshed: $newToken');
-        _updateTokenInFirestore(newToken);
-      });
-
-      // 6. Foreground message handler
-      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-
-      // 7. Background tap handler
-      FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
-
-      // 8. Check if opened from notification
-      await _checkInitialMessage();
-
-      _isInitialized = true;
-      print('✅ Notification Service initialized successfully');
-    } catch (e) {
-      print('❌ Error initializing notifications: $e');
-    }
+    _isInitialized = true;
+    debugPrint('Notification service initialized');
   }
 
-  // ✅ Return bool to indicate success
   Future<bool> _requestPermission() async {
-    try {
-      NotificationSettings settings = await _messaging.requestPermission(
-        alert: true,
-        announcement: false,
-        badge: true,
-        carPlay: false,
-        criticalAlert: false,
-        provisional: false,
-        sound: true,
-      );
+    final settings = await _messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
 
-      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        print('✅ User granted notification permission');
-        return true;
-      } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
-        print('⚠️ User granted provisional notification permission');
-        return true;
-      } else {
-        print('❌ User declined notification permission');
-        return false;
-      }
-    } catch (e) {
-      print('❌ Error requesting permission: $e');
-      return false;
-    }
+    return settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional;
   }
 
   Future<void> _getFCMToken() async {
-    try {
-      // For iOS, wait for APNS token
-      if (Platform.isIOS) {
-        String? apnsToken = await _messaging.getAPNSToken();
-        if (apnsToken == null) {
-          print('⚠️ Waiting for APNS token...');
-          await Future.delayed(const Duration(seconds: 3));
-          apnsToken = await _messaging.getAPNSToken();
-        }
-        print('📱 APNS Token: $apnsToken');
-      }
+    if (Platform.isIOS) {
+      await _messaging.getAPNSToken();
+    }
 
-      _fcmToken = await _messaging.getToken();
+    _fcmToken = await _messaging.getToken();
 
-      if (_fcmToken != null) {
-        print('✅ FCM Token: $_fcmToken');
-        
-        // Save token immediately if user is logged in
-        final user = FirebaseAuth.instance.currentUser;
-        if (user != null) {
-          await updateUserToken(user.uid);
-        }
-      } else {
-        print('❌ Failed to get FCM token');
-      }
-    } catch (e) {
-      print('❌ Error getting FCM token: $e');
+    if (_fcmToken != null) {
+      await updateUserToken();
     }
   }
 
+  Future<void> updateUserToken([String? userId]) async {
+    final fallbackUser = FirebaseAuth.instance.currentUser;
+    final uid = userId ?? fallbackUser?.uid;
+
+    if (uid == null || _fcmToken == null) return;
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'fcmToken': _fcmToken,
+        'platform': Platform.isAndroid ? 'android' : 'ios',
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      debugPrint('FCM token saved for user: $uid');
+    } catch (e) {
+      debugPrint('Error saving FCM token: $e');
+    }
+  }
+
+  Future<void> syncProfessionalTopics() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final userSnap = await userRef.get();
+    final data = userSnap.data();
+    if (data == null) return;
+
+    final role = (data['role'] ?? '').toString();
+    final service = (data['service'] ?? '').toString();
+    final previousTopic = (data['subscribedJobTopic'] ?? '').toString();
+
+    if (role != 'professional') {
+      if (previousTopic.isNotEmpty) {
+        await unsubscribeFromTopic(previousTopic);
+        await userRef.set({
+          'subscribedJobTopic': FieldValue.delete(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+      return;
+    }
+
+    if (service.isEmpty) return;
+
+    final currentTopic = jobTopicForCategory(service);
+
+    if (previousTopic.isNotEmpty && previousTopic != currentTopic) {
+      await unsubscribeFromTopic(previousTopic);
+    }
+
+    await subscribeToTopic(currentTopic);
+
+    await userRef.set({
+      'subscribedJobTopic': currentTopic,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   Future<void> _initializeLocalNotifications() async {
-    const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings();
 
-    const DarwinInitializationSettings iosSettings =
-        DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
-
-    const InitializationSettings initSettings = InitializationSettings(
+    const initSettings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
     );
 
     await _localNotifications.initialize(
       initSettings,
-      onDidReceiveNotificationResponse: _onNotificationTap,
+      onDidReceiveNotificationResponse: (response) {
+        final payload = response.payload;
+        if (payload == null || payload.isEmpty) return;
+
+        try {
+          final decoded = jsonDecode(payload);
+          if (decoded is Map<String, dynamic>) {
+            _navigateBasedOnPayload(decoded);
+          }
+        } catch (e) {
+          debugPrint('Failed to parse local notification payload: $e');
+        }
+      },
     );
 
-    // ✅ Create Android notification channel
     if (Platform.isAndroid) {
-      const AndroidNotificationChannel channel = AndroidNotificationChannel(
-        'fixit_high_importance', // ✅ Changed ID to be more specific
+      const channel = AndroidNotificationChannel(
+        _channelId,
         'FixIt Notifications',
         description: 'Important notifications for FixIt app',
         importance: Importance.high,
-        playSound: true,
-        enableVibration: true,
-        showBadge: true,
       );
 
       await _localNotifications
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
-
-      print('✅ Android notification channel created');
     }
   }
 
   void _handleForegroundMessage(RemoteMessage message) {
-    print('📩 Foreground message: ${message.messageId}');
-    print('Title: ${message.notification?.title}');
-    print('Body: ${message.notification?.body}');
-    print('Data: ${message.data}');
+    final notification = message.notification;
+    if (notification == null) return;
 
-    // ✅ Show notification in foreground
-    _showLocalNotification(
-      title: message.notification?.title ?? 'FixIt',
-      body: message.notification?.body ?? 'You have a new notification',
-      payload: message.data.toString(),
-      data: message.data,
+    _localNotifications.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      notification.title ?? 'FixIt',
+      notification.body ?? '',
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelId,
+          'FixIt Notifications',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+      payload: jsonEncode(message.data),
     );
   }
 
   void _handleNotificationTap(RemoteMessage message) {
-    print('🔔 Notification tapped: ${message.data}');
     _navigateBasedOnPayload(message.data);
   }
 
   Future<void> _checkInitialMessage() async {
-    RemoteMessage? initialMessage =
-        await FirebaseMessaging.instance.getInitialMessage();
-
+    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) {
-      print('🔔 App opened from notification');
-      await Future.delayed(const Duration(seconds: 1));
       _navigateBasedOnPayload(initialMessage.data);
     }
   }
 
-  void _onNotificationTap(NotificationResponse response) {
-    print('🔔 Local notification tapped: ${response.payload}');
-    // TODO: Parse payload and navigate
-  }
-
-  // ✅ Improved local notification display
-  Future<void> _showLocalNotification({
-    required String title,
-    required String body,
-    String? payload,
-    Map<String, dynamic>? data,
-  }) async {
-    try {
-      const AndroidNotificationDetails androidDetails =
-          AndroidNotificationDetails(
-        'fixit_high_importance', // ✅ Must match channel ID
-        'FixIt Notifications',
-        channelDescription: 'Important notifications for FixIt app',
-        importance: Importance.high,
-        priority: Priority.high,
-        showWhen: true,
-        enableVibration: true,
-        playSound: true,
-        icon: '@mipmap/ic_launcher',
-      );
-
-      const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
-      );
-
-      const NotificationDetails notificationDetails = NotificationDetails(
-        android: androidDetails,
-        iOS: iosDetails,
-      );
-
-      final int notificationId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-
-      await _localNotifications.show(
-        notificationId,
-        title,
-        body,
-        notificationDetails,
-        payload: payload,
-      );
-
-      print('✅ Local notification shown: $title');
-    } catch (e) {
-      print('❌ Error showing notification: $e');
-    }
-  }
-
   void _navigateBasedOnPayload(Map<String, dynamic> data) {
-    final String? type = data['type'];
-    final String? issueId = data['issueId'];
+    if (data.isEmpty) return;
 
-    print('📍 Navigation data - type: $type, issueId: $issueId');
-
-    // TODO: Implement navigation
-  }
-
-  Future<void> updateUserToken(String userId) async {
-    if (_fcmToken == null) {
-      print('⚠️ Getting FCM token...');
-      await _getFCMToken();
-    }
-
-    if (_fcmToken == null) {
-      print('❌ No FCM token available');
+    final navigator = _navigatorKey?.currentState;
+    if (navigator == null) {
+      _pendingPayloads.add(data);
       return;
     }
 
-    try {
-      await FirebaseFirestore.instance.collection('users').doc(userId).set({
-        'fcmToken': _fcmToken,
-        'platform': Platform.isAndroid ? 'android' : 'ios',
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      print('✅ FCM token saved for user: $userId');
-    } catch (e) {
-      print('❌ Error saving FCM token: $e');
-    }
+    final request = NotificationRoutes.fromData(data);
+    navigator.pushNamed(request.routeName, arguments: request.arguments);
   }
 
-  Future<void> _updateTokenInFirestore(String token) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      await updateUserToken(user.uid);
-    }
-  }
+  void _flushPendingNavigation() {
+    final navigator = _navigatorKey?.currentState;
+    if (navigator == null || _pendingPayloads.isEmpty) return;
 
-  Future<void> deleteToken() async {
-    try {
-      await _messaging.deleteToken();
-      final user = FirebaseAuth.instance.currentUser;
-
-      if (user != null) {
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-          'fcmToken': FieldValue.delete(),
-        });
-      }
-
-      _fcmToken = null;
-      print('✅ FCM token deleted');
-    } catch (e) {
-      print('❌ Error deleting token: $e');
+    while (_pendingPayloads.isNotEmpty) {
+      final payload = _pendingPayloads.removeAt(0);
+      final request = NotificationRoutes.fromData(payload);
+      navigator.pushNamed(request.routeName, arguments: request.arguments);
     }
   }
 
   Future<void> subscribeToTopic(String topic) async {
-    try {
-      await _messaging.subscribeToTopic(topic);
-      print('✅ Subscribed to topic: $topic');
-    } catch (e) {
-      print('❌ Error subscribing to topic: $e');
-    }
+    final normalized = _normalizeTopic(topic);
+    if (normalized.isEmpty) return;
+    await _messaging.subscribeToTopic(normalized);
   }
 
   Future<void> unsubscribeFromTopic(String topic) async {
-    try {
-      await _messaging.unsubscribeFromTopic(topic);
-      print('✅ Unsubscribed from topic: $topic');
-    } catch (e) {
-      print('❌ Error unsubscribing: $e');
+    final normalized = _normalizeTopic(topic);
+    if (normalized.isEmpty) return;
+    await _messaging.unsubscribeFromTopic(normalized);
+  }
+
+  Future<void> subscribeToTopics(List<String> topics) async {
+    for (final topic in topics) {
+      await subscribeToTopic(topic);
     }
   }
 
-  // ✅ Manual test notification
-  Future<void> showTestNotification() async {
-    await _showLocalNotification(
-      title: 'Test Notification',
-      body: 'If you see this, notifications are working! 🎉',
-      payload: 'test',
-    );
+  Future<void> unsubscribeFromTopics(List<String> topics) async {
+    for (final topic in topics) {
+      await unsubscribeFromTopic(topic);
+    }
   }
 
-  Future<void> cancelAllNotifications() async {
-    await _localNotifications.cancelAll();
-    print('✅ All notifications cancelled');
+  String jobTopicForCategory(String category) {
+    return 'jobs_${_normalizeTopic(category)}';
+  }
+
+  String _normalizeTopic(String topic) {
+    return topic
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-zA-Z0-9-_.~%]'), '_');
+  }
+
+  Future<void> showTestNotification() async {
+    await _localNotifications.show(
+      0,
+      'Test Notification',
+      'If you see this, notifications are working.',
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelId,
+          'FixIt Notifications',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
+    );
   }
 }

@@ -297,16 +297,4 @@ class FirestoreService {
         .doc(professionalId)
         .update(data);
   }
-
-  /* ==========================================================
-   * TOPIC SUBSCRIPTIONS (for category-based notifications)
-   * ========================================================== */
-
-  Future<void> subscribeToProfessionalCategory(String category) async {
-    await _notificationService.subscribeToTopic('category_$category');
-  }
-
-  Future<void> unsubscribeFromProfessionalCategory(String category) async {
-    await _notificationService.unsubscribeFromTopic('category_$category');
-  }
 }

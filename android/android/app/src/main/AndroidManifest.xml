@@ -23,7 +23,7 @@
         
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="fixit_channel" />
+            android:value="fixit_high_importance" />
         
         <activity
             android:name=".MainActivity"

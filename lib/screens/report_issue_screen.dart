@@ -1,8 +1,9 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:google_mlkit_image_labeling/google_mlkit_image_labeling.dart';
 import '../auth_service.dart';
 import '../services/firestore_service.dart';
 import '../services/image_recognition_service.dart';
@@ -35,16 +36,22 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
   bool _isSubmitting = false;
   bool _isUploading = false;
   bool _isAnalyzing = false;
+  bool _isLocating = false;
   final List<File> _selectedImages = [];
 
   Map<int, String> _imageDetections = {};
-  Map<int, List<ImageLabel>> _imageLabels = {};
+  Map<int, List<String>> _imageLabels = {};
   bool _isCategoryAISuggested = false;
 
   final List<String> _categories = [
     'Plumbing',
     'Electrical',
     'Cleaning',
+    'Carpentry',
+    'Painting',
+    'Appliance Repair',
+    'HVAC',
+    'Landscaping',
     'General Repair',
     'Other',
   ];
@@ -123,20 +130,41 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
 
   Future<void> _analyzeImage(File imageFile, int index) async {
     try {
-      final labels = await _imageRecognitionService.analyzeImage(imageFile);
-      final summary = _imageRecognitionService.getDetectionSummary(labels);
-      final suggestedCategory = await _imageRecognitionService.suggestCategory(
+      String summary;
+      String? suggestedCategory;
+      List<String> detectedObjects;
+
+      final geminiResult = await _imageRecognitionService.analyzeImageWithGemini(
         imageFile,
       );
+      if (geminiResult != null) {
+        suggestedCategory = geminiResult.category;
+        detectedObjects = geminiResult.objects.take(5).toList();
+        summary = geminiResult.damage != 'No obvious damage visible'
+            ? geminiResult.damage
+            : geminiResult.description;
+      } else {
+        final labels = await _imageRecognitionService.analyzeImage(imageFile);
+        suggestedCategory = await _imageRecognitionService
+            .suggestCategoryWithMLKit(imageFile);
+        detectedObjects = labels
+            .take(5)
+            .map(
+              (label) =>
+                  '${label.label} (${(label.confidence * 100).toStringAsFixed(0)}%)',
+            )
+            .toList();
+        summary = _imageRecognitionService.getDetectionSummary(labels);
+      }
 
       if (mounted) {
         setState(() {
-          _imageLabels[index] = labels;
+          _imageLabels[index] = detectedObjects;
           _imageDetections[index] = summary;
         });
 
         if (index == 0 && suggestedCategory != null) {
-          _showCategoryConfirmationDialog(suggestedCategory, labels);
+          _showCategoryConfirmationDialog(suggestedCategory, detectedObjects);
         }
       }
     } catch (e) {
@@ -146,7 +174,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
 
   Future<void> _showCategoryConfirmationDialog(
     String suggested,
-    List<ImageLabel> labels,
+    List<String> detectedObjects,
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -223,11 +251,11 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  ...labels.take(5).map(
-                        (label) => Padding(
+                  ...detectedObjects.take(5).map(
+                        (object) => Padding(
                           padding: const EdgeInsets.only(left: 8, top: 2),
                           child: Text(
-                            '- ${label.label} (${(label.confidence * 100).toStringAsFixed(0)}%)',
+                            '- $object',
                             style: TextStyle(
                               fontSize: 11,
                               color: Colors.grey[600],
@@ -265,7 +293,9 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
 
     if (confirmed == true && mounted) {
       setState(() {
-        _selectedCategory = suggested;
+        _selectedCategory = _categories.contains(suggested)
+            ? suggested
+            : 'General Repair';
         _isCategoryAISuggested = true;
       });
 
@@ -308,7 +338,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
       _imageLabels.remove(index);
 
       final tempDetections = <int, String>{};
-      final tempLabels = <int, List<ImageLabel>>{};
+      final tempLabels = <int, List<String>>{};
 
       _imageDetections.forEach((key, value) {
         if (key > index) {
@@ -400,6 +430,80 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     }
   }
 
+  Future<void> _useCurrentLocation() async {
+    if (_isLocating) return;
+    setState(() => _isLocating = true);
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw Exception('Location services are disabled.');
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw Exception('Location permission not granted.');
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      final placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      String resolvedAddress;
+      if (placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        resolvedAddress = [
+          place.street,
+          place.subLocality,
+          place.locality,
+          place.administrativeArea,
+          place.postalCode,
+          place.country,
+        ].where((part) => part != null && part.trim().isNotEmpty).join(', ');
+      } else {
+        resolvedAddress =
+            '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+      }
+
+      if (mounted) {
+        setState(() {
+          _addressController.text = resolvedAddress;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location added to address field'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not fetch location: $e'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLocating = false);
+      }
+    }
+  }
   Future<void> _showSuccessAnimation() async {
     return showDialog(
       context: context,
@@ -520,11 +624,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                 maxLines: 4,
               ),
               const SizedBox(height: AppSpacing.md),
-              _buildTextField(
-                'Location/Address',
-                _addressController,
-                'e.g., 123 Main St, Apt 4B',
-              ),
+              _buildLocationField(),
               const SizedBox(height: AppSpacing.xl),
               PrimaryButton(
                 label: 'Submit Report',
@@ -870,6 +970,34 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     );
   }
 
+  Widget _buildLocationField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildTextField(
+          'Location/Address',
+          _addressController,
+          'e.g., 123 Main St, Apt 4B',
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: _isLocating ? null : _useCurrentLocation,
+            icon: _isLocating
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.my_location),
+            label: Text(_isLocating ? 'Locating...' : 'Use current location'),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTextField(
     String label,
     TextEditingController controller,
@@ -1187,3 +1315,6 @@ class _SuccessAnimationDialogState extends State<_SuccessAnimationDialog>
     );
   }
 }
+
+
+

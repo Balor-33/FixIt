@@ -1,28 +1,44 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'firebase_options.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'config/app_theme.dart';
-import 'screens/role_selection_screen.dart';
+import 'firebase_options.dart';
 import 'screens/customer_home_screen.dart';
 import 'screens/professional_home_screen.dart';
+import 'screens/role_selection_screen.dart';
+import 'services/notification_routes.dart';
 import 'services/notification_service.dart';
+import 'services/image_recognition_service.dart';
+
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await dotenv.load(fileName: ".env");
+  if (kDebugMode && dotenv.env['LOG_GEMINI_STARTUP_CHECK'] == 'true') {
+    await ImageRecognitionService.logGeminiModelStatus();
+  }
 
-  // Initialize Notification Service
+  FirebaseMessaging.onBackgroundMessage(
+    NotificationService.firebaseMessagingBackgroundHandler,
+  );
+
   await NotificationService().initialize();
+  NotificationService().setNavigatorKey(appNavigatorKey);
 
-  runApp(const FixItApp());
+  runApp(FixItApp(navigatorKey: appNavigatorKey));
 }
 
 class FixItApp extends StatelessWidget {
-  const FixItApp({super.key});
+  final GlobalKey<NavigatorState> navigatorKey;
+
+  const FixItApp({super.key, required this.navigatorKey});
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +46,8 @@ class FixItApp extends StatelessWidget {
       title: 'FixIt',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
+      navigatorKey: navigatorKey,
+      onGenerateRoute: NotificationRoutes.onGenerateRoute,
       home: const AuthGate(),
     );
   }
@@ -43,21 +61,14 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
-  @override
-  void initState() {
-    super.initState();
-    _updateFCMToken();
+  String? _initializedNotificationUid;
+
+  Future<void> _initializeUser(String uid) async {
+    await NotificationService().updateUserToken(uid);
+    await _ensureUserHasRole(uid);
+    await NotificationService().syncProfessionalTopics();
   }
 
-  // Update FCM token when user logs in
-  Future<void> _updateFCMToken() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      await NotificationService().updateUserToken(user.uid);
-    }
-  }
-
-  // ✅ Fix user role if missing
   Future<void> _ensureUserHasRole(String uid) async {
     try {
       final userDoc = await FirebaseFirestore.instance
@@ -65,23 +76,20 @@ class _AuthGateState extends State<AuthGate> {
           .doc(uid)
           .get();
 
-      if (!userDoc.exists || !userDoc.data()!.containsKey('role')) {
-        print('⚠️ User missing role field, creating document...');
-
+      if (!userDoc.exists || !(userDoc.data()!.containsKey('role'))) {
         final user = FirebaseAuth.instance.currentUser;
+
         await FirebaseFirestore.instance.collection('users').doc(uid).set({
           'uid': uid,
           'email': user?.email ?? '',
-          'role': 'customer', // Default to customer
+          'role': 'customer',
           'displayName': user?.displayName ?? 'User',
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
-
-        print('✅ User role fixed!');
       }
     } catch (e) {
-      print('❌ Error ensuring user has role: $e');
+      debugPrint('Error ensuring user role: $e');
     }
   }
 
@@ -90,33 +98,37 @@ class _AuthGateState extends State<AuthGate> {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
+        final user = snapshot.data;
+        if (user != null && _initializedNotificationUid != user.uid) {
+          _initializedNotificationUid = user.uid;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _initializeUser(user.uid);
+          });
+        } else if (user == null) {
+          _initializedNotificationUid = null;
+        }
+
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        if (!snapshot.hasData || snapshot.data == null) {
-          // User is not logged in
+        if (user == null) {
           return const RoleSelectionScreen();
         }
 
-        final userId = snapshot.data!.uid;
+        final userId = user.uid;
 
-        // Update token when user logs in
-        _updateFCMToken();
-
-        // User is logged in, fetch their role
         return FutureBuilder<DocumentSnapshot>(
           future: FirebaseFirestore.instance
               .collection('users')
               .doc(userId)
               .get()
               .then((doc) async {
-                // ✅ Auto-fix missing role
-                if (!doc.exists || !doc.data()!.containsKey('role')) {
+                if (!doc.exists ||
+                    !(doc.data() as Map<String, dynamic>).containsKey('role')) {
                   await _ensureUserHasRole(userId);
-                  // Refetch the document
                   return FirebaseFirestore.instance
                       .collection('users')
                       .doc(userId)
@@ -134,7 +146,6 @@ class _AuthGateState extends State<AuthGate> {
             if (!userSnapshot.hasData ||
                 userSnapshot.data == null ||
                 !userSnapshot.data!.exists) {
-              // If still no user document, show error screen
               return _ErrorScreen(onRetry: () => setState(() {}));
             }
 
@@ -160,7 +171,6 @@ class _AuthGateState extends State<AuthGate> {
   }
 }
 
-// ✅ Error screen with retry option
 class _ErrorScreen extends StatelessWidget {
   final VoidCallback onRetry;
 

@@ -5,7 +5,6 @@ import 'professional_home_screen.dart';
 import 'professional_signup_screen.dart';
 import 'role_selection_screen.dart';
 import '../widgets/app_scaffold.dart';
-import '../widgets/app_card.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/secondary_button.dart';
 import '../config/app_theme.dart';
@@ -107,32 +106,6 @@ class _ProfessionalLoginScreenState extends State<ProfessionalLoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Why FixIt Pro?',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  _BenefitRow(
-                    icon: Icons.flash_on,
-                    label: 'Instant job matches',
-                  ),
-                  _BenefitRow(
-                    icon: Icons.shield_outlined,
-                    label: 'Verified customer requests',
-                  ),
-                  _BenefitRow(
-                    icon: Icons.star_outline,
-                    label: 'Ratings that build trust',
-                  ),
-                ],
-              ),
-            ),
             const SizedBox(height: AppSpacing.lg),
             Row(
               children: [
@@ -147,16 +120,16 @@ class _ProfessionalLoginScreenState extends State<ProfessionalLoginScreen> {
             const SizedBox(height: AppSpacing.lg),
             Text(
               'Welcome back',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
               'Sign in to view jobs that match your skills.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: AppSpacing.xl),
             TextField(
@@ -199,7 +172,9 @@ class _ProfessionalLoginScreenState extends State<ProfessionalLoginScreen> {
               children: [
                 Expanded(child: Divider(color: Colors.grey[300])),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                  ),
                   child: Text(
                     'OR',
                     style: TextStyle(color: Colors.grey[600], fontSize: 13),
@@ -248,42 +223,6 @@ class _ProfessionalLoginScreenState extends State<ProfessionalLoginScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _BenefitRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _BenefitRow({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-      child: Row(
-        children: [
-          Container(
-            height: 28,
-            width: 28,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
-            ),
-            child: Icon(icon, size: 16, color: AppTheme.electric),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[700],
-                  ),
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 import '../models/issue_model.dart';
+import '../models/chat_room_model.dart';
+import '../models/message_model.dart';
 import 'notification_service.dart';
 
 class FirestoreService {
@@ -155,6 +157,131 @@ class FirestoreService {
     });
 
     print('✅ Issue completed');
+  }
+
+  /* ==========================================================
+   * CHAT
+   * ========================================================== */
+
+  Future<String> getOrCreateChatRoom({
+    required String issueId,
+    required String customerId,
+    required String professionalId,
+  }) async {
+    final existing = await _db
+        .collection('chat_rooms')
+        .where('issueId', isEqualTo: issueId)
+        .where('customerId', isEqualTo: customerId)
+        .where('professionalId', isEqualTo: professionalId)
+        .limit(1)
+        .get();
+
+    if (existing.docs.isNotEmpty) {
+      return existing.docs.first.id;
+    }
+
+    final ref = await _db.collection('chat_rooms').add({
+      'issueId': issueId,
+      'customerId': customerId,
+      'professionalId': professionalId,
+      'participants': [customerId, professionalId],
+      'lastMessage': null,
+      'lastMessageSenderId': null,
+      'lastMessageAt': null,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    return ref.id;
+  }
+
+  Future<ChatRoomModel?> getChatRoom(String chatRoomId) async {
+    final doc = await _db.collection('chat_rooms').doc(chatRoomId).get();
+    if (!doc.exists) return null;
+    return ChatRoomModel.fromFirestore(doc);
+  }
+
+  Stream<Map<String, dynamic>?> getChatRoomStream(String chatRoomId) {
+    return _db.collection('chat_rooms').doc(chatRoomId).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return doc.data();
+    });
+  }
+
+  Stream<List<MessageModel>> getChatMessages(String chatRoomId) {
+    return _db
+        .collection('chat_rooms')
+        .doc(chatRoomId)
+        .collection('messages')
+        .orderBy('sentAt')
+        .snapshots()
+        .map((snap) => snap.docs.map(MessageModel.fromFirestore).toList());
+  }
+
+  Future<void> sendMessage({
+    required String chatRoomId,
+    required String senderId,
+    required String receiverId,
+    required String text,
+  }) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+
+    final now = DateTime.now();
+    final roomRef = _db.collection('chat_rooms').doc(chatRoomId);
+    final messageRef = roomRef.collection('messages').doc();
+
+    final batch = _db.batch();
+    batch.set(messageRef, {
+      'chatRoomId': chatRoomId,
+      'senderId': senderId,
+      'receiverId': receiverId,
+      'text': trimmed,
+      'sentAt': Timestamp.fromDate(now),
+      'isRead': false,
+    });
+    batch.update(roomRef, {
+      'lastMessage': trimmed,
+      'lastMessageSenderId': senderId,
+      'lastMessageAt': Timestamp.fromDate(now),
+      'typingBy.$senderId': false,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+  }
+
+  Future<void> setTypingStatus({
+    required String chatRoomId,
+    required String userId,
+    required bool isTyping,
+  }) async {
+    await _db.collection('chat_rooms').doc(chatRoomId).update({
+      'typingBy.$userId': isTyping,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> markMessagesAsRead({
+    required String chatRoomId,
+    required String userId,
+  }) async {
+    final unread = await _db
+        .collection('chat_rooms')
+        .doc(chatRoomId)
+        .collection('messages')
+        .where('isRead', isEqualTo: false)
+        .get();
+
+    if (unread.docs.isEmpty) return;
+
+    final batch = _db.batch();
+    for (final doc in unread.docs) {
+      final data = doc.data();
+      if (data['senderId'] != userId) {
+        batch.update(doc.reference, {'isRead': true});
+      }
+    }
+    await batch.commit();
   }
 
   /* ==========================================================

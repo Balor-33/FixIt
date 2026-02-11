@@ -82,7 +82,10 @@ class NotificationRoutes {
         final args = settings.arguments;
         if (args is ChatArgs) {
           return MaterialPageRoute(
-            builder: (_) => ChatScreen(threadId: args.threadId),
+            builder: (_) => ChatScreen(
+              chatRoomId: args.threadId,
+              issueTitle: 'Issue Chat',
+            ),
             settings: settings,
           );
         }

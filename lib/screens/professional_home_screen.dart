@@ -63,9 +63,9 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen> {
                 children: [
                   Text(
                     'Welcome back',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.white70,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.white70),
                   ),
                   const Spacer(),
                   IconButton(
@@ -104,18 +104,18 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen> {
             const SizedBox(height: AppSpacing.sm),
             Text(
               'Set your service category',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 6),
             Text(
               'Update your profile to start receiving jobs that match your skills.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
             ),
           ],
         ),
@@ -128,8 +128,6 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen> {
       onRefresh: () async {},
       child: ListView(
         children: [
-          _ProHighlights(category: category),
-          const SizedBox(height: AppSpacing.xl),
           const SectionHeader(title: 'Available Jobs'),
           const SizedBox(height: AppSpacing.sm),
           _availableJobs(category),
@@ -187,7 +185,10 @@ class _ProfessionalHomeScreenState extends State<ProfessionalHomeScreen> {
             .toList();
 
         if (jobs.isEmpty) {
-          return Text('No active jobs', style: TextStyle(color: Colors.grey[600]));
+          return Text(
+            'No active jobs',
+            style: TextStyle(color: Colors.grey[600]),
+          );
         }
 
         return AnimatedSwitcher(
@@ -236,15 +237,15 @@ class _IssueTile extends StatelessWidget {
                 Text(
                   issue.title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   issue.address,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[600],
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 StatusChip(status: issue.status),
@@ -273,92 +274,11 @@ class _IssueTile extends StatelessWidget {
   }
 }
 
-class _ProHighlights extends StatelessWidget {
-  final String category;
-
-  const _ProHighlights({required this.category});
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 620;
-        final cards = [
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.auto_graph, color: Color(0xFF38BDF8)),
-                const SizedBox(height: 8),
-                Text(
-                  'Grow faster',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Respond quickly to win more jobs.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                ),
-              ],
-            ),
-          ),
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.verified, color: Color(0xFF7C3AED)),
-                const SizedBox(height: 8),
-                Text(
-                  category,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Your active service category.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                ),
-              ],
-            ),
-          ),
-        ];
-
-        if (wide) {
-          return Row(
-            children: [
-              Expanded(child: cards[0]),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(child: cards[1]),
-            ],
-          );
-        }
-        return Column(
-          children: [
-            cards[0],
-            const SizedBox(height: AppSpacing.md),
-            cards[1],
-          ],
-        );
-      },
-    );
-  }
-}
-
 class _AnimatedProHero extends StatelessWidget {
   final String title;
   final String subtitle;
 
-  const _AnimatedProHero({
-    required this.title,
-    required this.subtitle,
-  });
+  const _AnimatedProHero({required this.title, required this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -369,11 +289,7 @@ class _AnimatedProHero extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF0F172A),
-            Color(0xFF1E293B),
-            Color(0xFF2563EB),
-          ],
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF2563EB)],
         ),
         border: Border.all(color: Colors.white.withOpacity(0.08)),
         boxShadow: [
@@ -393,9 +309,9 @@ class _AnimatedProHero extends StatelessWidget {
                 Text(
                   'Professional',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: Colors.white70,
-                        letterSpacing: 0.8,
-                      ),
+                    color: Colors.white70,
+                    letterSpacing: 0.8,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -403,16 +319,16 @@ class _AnimatedProHero extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   subtitle,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white70,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.white70),
                 ),
               ],
             ),

@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function roomRef(chatRoomId) {
+      return get(/databases/$(database)/documents/chat_rooms/$(chatRoomId));
+    }
+
+    function isRoomParticipant(chatRoomId) {
+      let room = roomRef(chatRoomId).data;
+      return signedIn() && (
+        (('participants' in room) && request.auth.uid in room.participants)
+        || request.auth.uid == room.customerId
+        || request.auth.uid == room.professionalId
+      );
+    }
+
+    function isParticipantInRoomDoc(room) {
+      return signedIn() && (
+        (('participants' in room) && request.auth.uid in room.participants)
+        || request.auth.uid == room.customerId
+        || request.auth.uid == room.professionalId
+      );
+    }
+
+    // Issues collection: only authenticated users may create their own issues
+    // and only the owner (customerId) can update them. Professionals and
+    // authenticated users can read issues.
+    match /issues/{issueId} {
+      allow create: if signedIn()
+                    && request.resource.data.customerId == request.auth.uid;
+      allow update: if signedIn()
+                    && resource.data.customerId == request.auth.uid;
+      allow read: if signedIn();
+      allow delete: if false;
+    }
+
+    // Users collection: authenticated users may read profiles, only owner writes.
+    match /users/{userId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == userId;
+    }
+
+    // Chat rooms and messages: only participants can access.
+    match /chat_rooms/{chatRoomId} {
+      allow create: if signedIn()
+                    && request.auth.uid in [
+                         request.resource.data.customerId,
+                         request.resource.data.professionalId
+                       ]
+                    && request.resource.data.participants.size() == 2
+                    && request.resource.data.participants.hasAll([
+                         request.resource.data.customerId,
+                         request.resource.data.professionalId
+                       ]);
+      allow read, update: if isParticipantInRoomDoc(resource.data);
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isRoomParticipant(chatRoomId);
+
+        allow create: if isRoomParticipant(chatRoomId)
+                      && request.resource.data.chatRoomId == chatRoomId
+                      && request.resource.data.senderId == request.auth.uid;
+
+        // Receiver can only mark incoming messages as read.
+        allow update: if isRoomParticipant(chatRoomId)
+                      && resource.data.senderId != request.auth.uid
+                      && request.resource.data.chatRoomId == resource.data.chatRoomId
+                      && request.resource.data.senderId == resource.data.senderId
+                      && request.resource.data.receiverId == resource.data.receiverId
+                      && request.resource.data.text == resource.data.text
+                      && request.resource.data.sentAt == resource.data.sentAt
+                      && request.resource.data.isRead == true;
+        allow delete: if false;
+      }
+    }
+
+    // Default: authenticated users can read most data; writing is restricted
+    match /{document=**} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+  }
+}

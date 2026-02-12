@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Notification icon tint color (cyan color matching your app theme) -->
+    <color name="notification_color">#00BCD4</color>
+    
+    <!-- You can add more colors here if needed for your app -->
+    <color name="primary_color">#00BCD4</color>
+    <color name="primary_dark">#0097A7</color>
+    <color name="accent_color">#FF4081</color>
+</resources>
